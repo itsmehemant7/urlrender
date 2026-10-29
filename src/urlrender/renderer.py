@@ -1,6 +1,6 @@
-
 from dataclasses import dataclass
 from time import perf_counter
+from typing import Optional
 from urllib.parse import urlparse
 
 from playwright.sync_api import (
@@ -13,14 +13,14 @@ from playwright.sync_api import (
 from .exceptions import NavigationError, RenderTimeoutError
 
 
-@dataclass(slots=True)
+@dataclass
 class RenderResult:
     """Result returned by a page rendering operation."""
 
     url: str
     html: str
     text: str
-    status_code: int | None
+    status_code: Optional[int]
     title: str
     elapsed_ms: float
 
@@ -48,16 +48,18 @@ class Renderer:
         }:
             raise ValueError("Invalid wait_until value")
 
+        if viewport_width <= 0 or viewport_height <= 0:
+            raise ValueError("Viewport dimensions must be greater than zero")
+
         self.timeout = timeout
         self.wait_until = wait_until
         self.headless = headless
         self.viewport_width = viewport_width
         self.viewport_height = viewport_height
 
-        self._playwright: Playwright | None = None
-        self._browser: Browser | None = None
+        self._playwright: Optional[Playwright] = None
+        self._browser: Optional[Browser] = None
         self._closed = False
-
 
     def start(self) -> "Renderer":
         """Start Playwright and launch Chromium."""
@@ -87,9 +89,12 @@ class Renderer:
 
         return self
 
-
-
-    def render(self, url: str, *, wait_for_selector: str | None = None,) -> RenderResult:
+    def render(
+        self,
+        url: str,
+        *,
+        wait_for_selector: Optional[str] = None,
+    ) -> RenderResult:
         """Render a URL and return its HTML, text, and metadata."""
 
         url = self._normalize_url(url)
@@ -100,19 +105,19 @@ class Renderer:
         started_at = perf_counter()
 
         try:
-            v = {
-                 "width": self.viewport_width,
-                 "height": self.viewport_height,
-                }
-            
+            viewport = {
+                "width": self.viewport_width,
+                "height": self.viewport_height,
+            }
+
             with self._browser.new_context(
                 user_agent=(
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                     "AppleWebKit/537.36 (KHTML, like Gecko) "
                     "Chrome/120.0.0.0 Safari/537.36"
                 ),
-                viewport=v,
-                java_script_enabled=True
+                viewport=viewport,
+                java_script_enabled=True,
             ) as context:
                 page = context.new_page()
                 page.set_default_navigation_timeout(self.timeout)
@@ -141,9 +146,8 @@ class Renderer:
 
                 html = page.content()
 
-                text = page.locator("body").inner_text() if page.locator(
-                    "body"
-                ).count() else ""
+                body = page.locator("body")
+                text = body.inner_text() if body.count() else ""
 
                 title = page.title()
 
@@ -161,7 +165,7 @@ class Renderer:
 
         except PlaywrightTimeoutError as exc:
             raise RenderTimeoutError(
-                f"Rendering timed out for {url}"
+                "Rendering timed out for {}".format(url)
             ) from exc
 
         except NavigationError:
@@ -169,19 +173,16 @@ class Renderer:
 
         except Exception as exc:
             raise NavigationError(
-                f"Failed to render {url}: {exc}"
+                "Failed to render {}: {}".format(url, exc)
             ) from exc
-
 
     def get_html(self, url: str) -> str:
         """Return the rendered HTML of a URL."""
         return self.render(url).html
 
-
     def get_text(self, url: str) -> str:
         """Return the visible text of a URL."""
         return self.render(url).text
-
 
     @staticmethod
     def _normalize_url(url: str) -> str:
@@ -194,7 +195,7 @@ class Renderer:
         parsed = urlparse(url)
 
         if not parsed.scheme:
-            url = f"https://{url}"
+            url = "https://{}".format(url)
             parsed = urlparse(url)
 
         if parsed.scheme not in {"http", "https"} or not parsed.hostname:
@@ -209,7 +210,6 @@ class Renderer:
             raise ValueError("URL contains an invalid port") from exc
 
         return url
-
 
     def close(self) -> None:
         """Close Chromium and stop Playwright."""
@@ -228,12 +228,8 @@ class Renderer:
                 self._playwright.stop()
                 self._playwright = None
 
-
     def __enter__(self) -> "Renderer":
         return self.start()
 
-
     def __exit__(self, exc_type, exc, tb) -> None:
         self.close()
-
-
