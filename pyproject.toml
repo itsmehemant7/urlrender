@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "urlrender"
-version = "0.1.1"
+version = "0.1.2"
 description = "A lightweight Python library for rendering JavaScript-enabled web pages using Playwright"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -32,8 +32,10 @@ classifiers = [
     "Topic :: Internet :: WWW/HTTP :: Browsers",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
+
 dependencies = [
-    "playwright>=1.45.0,<1.49.0",
+    "playwright>=1.45.0,<1.49.0; python_version < '3.10'",
+    "playwright>=1.45.0; python_version >= '3.10'",
 ]
 
 [project.urls]
