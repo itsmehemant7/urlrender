@@ -1,0 +1,20 @@
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "urlrender"
+version = "0.1.0"
+description = "A lightweight Python library for rendering JavaScript-enabled web pages"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+dependencies = [
+    "playwright>=1.45.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+
